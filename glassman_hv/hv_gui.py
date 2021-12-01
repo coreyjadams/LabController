@@ -1,8 +1,14 @@
 import sys
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QApplication
+from PyQt5.QtWidgets import (
+    QWidget, QFrame,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QApplication
+    )
 
-class SupplyParameterDisplay(QWidget):
+class SupplyParameterDisplay(QFrame):
 
 
 
@@ -11,15 +17,13 @@ class SupplyParameterDisplay(QWidget):
         unit :str = "",
         max_value : float = 1.):
 
-        QWidget.__init__(self)
-
+        QFrame.__init__(self)
+        self.setFrameShape(QFrame.Box)
         self.label = label
         self.unit  = unit
         self.max_value = max_value
 
         layout = QVBoxLayout()
-
-        sub_layout = QHBoxLayout()
 
         self.label_widget = QLabel(self.label)
         layout.addWidget(self.label_widget)
@@ -46,14 +50,17 @@ class HV_Gui(QWidget):
             unit  = "mA",
             max_value = 5.
         )
-
         self.voltage_display = SupplyParameterDisplay(
             label = "Voltage",
             unit  = "kV",
             max_value = 125.
         )
+        self.readout_box = QHBoxLayout()
+        self.readout_box.addWidget(self.current_display)
+        self.readout_box.addWidget(self.voltage_display)
 
-        layout.addWidget(self.current_display)
-        layout.addWidget(self.voltage_display)
+
+        layout.addLayout(self.readout_box)
+
 
         self.setLayout(layout)
