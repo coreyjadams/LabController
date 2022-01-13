@@ -11,6 +11,10 @@ from PyQt5.QtWidgets import (
 
 from . HVController import HvController
 
+import pyqtgraph as pg
+pg.setConfigOptions(antialias=True)
+
+
 class SupplyParameterDisplay(QFrame):
 
 
@@ -246,24 +250,47 @@ class HV_Gui(QWidget):
 
         QWidget.__init__(self)
 
-        self.layout = QVBoxLayout() 
+
+        self.global_layout = QVBoxLayout() 
+
+        self.top_layout = QHBoxLayout()
 
         # Configure the readout box:
 
+        hv_layout = QVBoxLayout()
         self.HV_READBACK_GUI = HVReadbackGui()
         self.HV_SET_GUI      = HVSetGUI()
 
 
-        self.layout.addWidget(self.HV_READBACK_GUI)
-        self.layout.addWidget(self.HV_SET_GUI)
+        hv_layout.addWidget(self.HV_READBACK_GUI)
+        hv_layout.addWidget(self.HV_SET_GUI)
+        hv_layout.addStretch()
+        self.top_layout.addLayout(hv_layout)
 
-
-        self.setLayout(self.layout)
 
         # This is the class that communicates with the physical hardware:
         self.hv_controller = HvController()
 
 
+        plot_layout = QVBoxLayout()
+        # Add plots to display HV:
+        hv_win = pg.GraphicsLayoutWidget(show=True, title="Basic plotting examples")
+        hv_plot = hv_win.addPlot(title="High Voltage")
+        hv_item = pg.PlotItem()
+        hv_plot.addItem(hv_item)
+
+        curr_win = pg.GraphicsLayoutWidget(show=True, title="Basic plotting examples")
+        curr_plot = curr_win.addPlot(title="Current")
+        curr_item = pg.PlotItem()
+        curr_plot.addItem(hv_item)
+
+        plot_layout.addWidget(hv_win)
+        plot_layout.addWidget(curr_win)
+
+        self.top_layout.addLayout(plot_layout)
+        self.global_layout.addLayout(self.top_layout)
+
+        self.setLayout(self.global_layout)
 
 # # -*- coding: utf-8 -*-
 # """
