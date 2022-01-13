@@ -4,8 +4,6 @@ from PyQt5 import QtGui, QtWidgets
 
 from glassman_hv import HV_Gui
 
-print(HV_Gui)
-print(type(HV_Gui))
 
 class MainWindow(QtWidgets.QWidget):
 
@@ -13,7 +11,7 @@ class MainWindow(QtWidgets.QWidget):
         QtWidgets.QWidget.__init__(self)
 
         self.setWindowTitle("ANL NEXT Lab Control System")
-
+        # self.setStyleSheet("background:white")
         layout = QtWidgets.QHBoxLayout()
 
         self.hv_gui = HV_Gui()
@@ -22,9 +20,8 @@ class MainWindow(QtWidgets.QWidget):
 
         self.setLayout(layout)
 
-        print(self.children())
 
-
+        self.show()
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)

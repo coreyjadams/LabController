@@ -22,12 +22,12 @@ import serial
 import time
 import logging
 
-import checksum
+from . import checksum
 
 
 class HvController():
     '''
-    Class for controlling HV power supply Glassman FJ model +40kV 3.0 mA
+    Class for controlling HV power supply Glassman FJ model +125kV 5.0 mA
 
     Modify constants according to specifications of the device:
        MAX_VOLTAGE = 125.0
@@ -287,7 +287,7 @@ class HvController():
         if timeoutMode == "enable":
             configCmd = self._encodeCommand('C0')
             answer = self._sendCommand(configCmd)
-            if answer is b'A':
+            if answer == b'A':
                 print("The timeout has been enabled")
             else:
                 print(answer)
@@ -295,7 +295,7 @@ class HvController():
         elif timeoutMode == "disable":
             configCmd = self._encodeCommand('C1')
             answer = self._sendCommand(configCmd)
-            if answer is b'A':
+            if answer == b'A':
                 print("The timeout has been disabled")
             else:
                 print(answer)
