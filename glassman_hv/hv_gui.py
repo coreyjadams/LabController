@@ -5,15 +5,22 @@ from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import (
     QWidget, QFrame,
     QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel,
+    QLabel, QComboBox,
     QLineEdit, QRadioButton, QPushButton
     )
+
 
 from . HVController import HvController
 
 import pyqtgraph as pg
 pg.setConfigOptions(antialias=True)
 
+import numpy
+max_dataframe_size = 10000
+
+from serial.tools import list_ports
+
+from datetime import datetime
 
 class SupplyParameterDisplay(QFrame):
 
@@ -63,13 +70,13 @@ class IndicatorAndLabel(QWidget):
 
     def __init__(self, label):
         QWidget.__init__(self)
-        
+
         self.ICON = QLabel(self)
         self.ICON.setMaximumSize(QtCore.QSize(21,21))
         self.ICON.setText("")
 
         self.setStatus(Status.OFF)
-      
+
         self.ICON.setScaledContents(True)
         self.ICON.setObjectName(label)
         self.ICON.show()
@@ -192,9 +199,9 @@ class HVSetGUI(QWidget):
         #  - set voltage (max)
         #  - set current (max)
         #  - ramp rate in V / s
-        #  
+        #
         #  Additionall, this gui sets the current/voltage limit.
-        #  
+        #
         #  Finally, this GUI enables HV or not.
 
         self.global_layout = QHBoxLayout()
@@ -203,11 +210,11 @@ class HVSetGUI(QWidget):
         self.parameter_set_layout = QVBoxLayout()
 
         self.voltage_setter = SetParameterWithLabel(
-            label     = "Voltage (kV)", 
+            label     = "Voltage (kV)",
             max_value = 125.,
             default   = 0.)
         self.current_setter = SetParameterWithLabel(
-            label     = "Current (mA)", 
+            label     = "Current (mA)",
             max_value = 5.,
             default   = 0.)
         self.ramp_setter    = SetParameterWithLabel(
@@ -251,7 +258,7 @@ class HV_Gui(QWidget):
         QWidget.__init__(self)
 
 
-        self.global_layout = QVBoxLayout() 
+        self.global_layout = QVBoxLayout()
 
         self.top_layout = QHBoxLayout()
 
@@ -264,25 +271,67 @@ class HV_Gui(QWidget):
 
         hv_layout.addWidget(self.HV_READBACK_GUI)
         hv_layout.addWidget(self.HV_SET_GUI)
-        hv_layout.addStretch()
-        self.top_layout.addLayout(hv_layout)
 
+        # We need a dropdown box for the port selection:
+        ports = list_ports.comports()
+
+        port_layout = QHBoxLayout()
+        port_layout.addStretch()
+        port_layout.addWidget(QLabel("HV Port"))
+        self.port_list_widget = QComboBox()
+        port_layout.addWidget(self.port_list_widget)
+
+        self.hv_open = QPushButton("OPEN Port")
+        self.hv_close = QPushButton("CLOSE Port")
+        port_layout.addWidget(self.hv_open)
+        port_layout.addWidget(self.hv_close)
+        port_layout.addStretch()
+        self.hv_open.clicked.connect(self.connect_hv)
+        self.hv_close.clicked.connect(self.disconnect_hv)
+
+        for p in ports:
+            self.port_list_widget.addItem(p.name)
+
+        hv_layout.addLayout(port_layout)
+        hv_layout.addStretch()
+
+
+        self.top_layout.addLayout(hv_layout)
 
         # This is the class that communicates with the physical hardware:
         self.hv_controller = HvController()
 
 
+        # Storage locations for the data
+        dtype = [
+            ('time', "datetime64[us]"),
+            ('voltage', 'float32'),
+            ('current', 'float32'),
+        ]
+        self.hv_data = numpy.zeros(max_dataframe_size, dtype=dtype)
+        self.active_index=0
+
+        # Put the gui together:
+
         plot_layout = QVBoxLayout()
         # Add plots to display HV:
-        hv_win = pg.GraphicsLayoutWidget(show=True, title="Basic plotting examples")
-        hv_plot = hv_win.addPlot(title="High Voltage")
-        hv_item = pg.PlotItem()
-        hv_plot.addItem(hv_item)
 
-        curr_win = pg.GraphicsLayoutWidget(show=True, title="Basic plotting examples")
-        curr_plot = curr_win.addPlot(title="Current")
-        curr_item = pg.PlotItem()
-        curr_plot.addItem(hv_item)
+        date_axis = pg.graphicsItems.DateAxisItem.DateAxisItem(orientation = 'bottom')
+
+        hv_win = pg.PlotWidget(show=True, title="Voltage")
+        hv_win.setAxisItems(axisItems={'bottom' : date_axis})
+        # hv_plot = hv_win.addPlot(title="High Voltage")
+        self.hv_item = hv_win.getPlotItem()
+        # hv_plot.addItem(self.hv_item)
+
+        curr_win = pg.PlotWidget(show=True, title="Current")
+        # curr_win.setAxisItems(axisItems={'bottom' : date_axis})
+
+        # curr_plot = curr_win.addPlot(title="Current")
+        self.curr_item = curr_win.getPlotItem()
+        # curr_plot.addItem(self.curr_item)
+
+        self.hv_item.setXLink(self.curr_item)
 
         plot_layout.addWidget(hv_win)
         plot_layout.addWidget(curr_win)
@@ -292,10 +341,113 @@ class HV_Gui(QWidget):
 
         self.setLayout(self.global_layout)
 
+        # self.start_hv_monitor()
+
+    def connect_hv(self):
+        '''
+        open the port to the HV FT
+        '''
+
+        # Get the port selected in the GUI:
+        port = self.port_list_widget.currentText()
+
+        print("Current port: ", port)
+
+        if self.hv_controller.device.is_open:
+            print("WARNING: Port is already open.  Disconnect HV First!.")
+            return
+
+        self.hv_controller.openPortHV(port)
+
+        # if the port opens successfully, start the HV monitoring:
+        if self.hv_controller.device.is_open:
+            self.start_hv_monitor()
+
+    def disconnect_hv(self):
+        '''
+        Disconnect from the HV Supply
+        '''
+        if self.hv_controller.voltage != 0:
+            qm  = QtGui.QMessageBox()
+            ret = qm.Question("Warning!  Voltage is not 0, are you sure you want to disconnect?")
+
+            if ret == qm.No: return
+
+        if self.hv_controller.device.is_open:
+            self.hv_controller.closePortHV()
+
+    def start_hv_monitor(self):
+        # Open the port for the HV:
+
+        # Make connections to the supply.
+
+        # A timer to query every 0.5 seconds the FT.
+        self.hv_query_timer = QtCore.QTimer()
+        self.hv_query_timer.setInterval(500) # time in ms
+        self.hv_query_timer.timeout.connect(self.query_HV)
+        self.hv_query_timer.start()
+
+
+    def hv_fault(self):
+        print("HV FAULT DETECTED, NO LOGIC IMPLEMENTED YET")
+
+    def update_plots(self):
+
+        # Set the data for the plot items.
+        # Take the last 200 points, or as many points as we have,
+        # whatever is less.
+
+        max_points = 200
+        n_points = numpy.min([self.active_index, max_points])
+
+        # start poitn is either 0 or active_index - max_points,
+        # whatever is less
+        start_index = numpy.max([0, self.active_index - max_points])
+        end_index = start_index + n_points
+
+        print(start_index)
+        print(end_index)
+
+        print(self.hv_data.shape)
+
+        times = self.hv_data[start_index:end_index]['time']
+        v = self.hv_data[start_index:end_index]['voltage']
+        i = self.hv_data[start_index:end_index]['current']
+
+        self.hv_item.plot(times, v)
+        self.curr_item.plot(times, i)
+
+
+    def query_HV(self):
+        '''
+        Send a query command to the HV supply and readback the response.
+
+        Additionally, ping the heartbeat and update the data points
+        '''
+        print("Query")
+        self.hv_controller.queryHV()
+        t = datetime.now()
+        print(t)
+        print(numpy.datetime64(t))
+        if self.hv_controller.fault:
+            self.hv_fault()
+
+
+
+        # if hv on, blink the heartbeat:
+
+        # Readback the values:
+        self.hv_data[self.active_index]['time'] = numpy.datetime64(t)
+        self.hv_data[self.active_index]['voltage'] = self.hv_controller.voltage
+        self.hv_data[self.active_index]['current'] = self.hv_controller.current
+        self.active_index += 1
+
+        self.update_plots()
+
 # # -*- coding: utf-8 -*-
 # """
 # This example demonstrates the ability to link the axes of views together
-# Views can be linked manually using the context menu, but only if they are given 
+# Views can be linked manually using the context menu, but only if they are given
 # names.
 # """
 
