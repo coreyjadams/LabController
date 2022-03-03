@@ -63,6 +63,9 @@ class SupplyParameterDisplay(QFrame):
 
         self.setLayout(layout)
 
+    def updateText(self, value):
+        self.readbackWidget.setText(f"{value:.3f} ({self.unit})")
+
 
 from enum import Enum
 class Status(Enum):
@@ -104,7 +107,6 @@ class IndicatorAndLabel(QWidget):
         # self.show()
 
     def setStatus(self, status : Status):
-        print("status set to ", status)
 
         pixmap = QtGui.QPixmap(status_indicator_icons[status])
 
@@ -113,12 +115,12 @@ class IndicatorAndLabel(QWidget):
         pass
 
     def heartbeat(self, status : Status = Status.UNKNOWN):
-        return
+        # return
         original_status = self.STATUS
-        print("Original Status", original_status)
         self.setStatus(status)
-        self.repaint()
-        time.sleep(0.5)
+        self.ICON.repaint()
+        # self.repaint()
+        time.sleep(0.1)
         self.setStatus(original_status)
 
 
@@ -128,10 +130,12 @@ class HVReadbackGui(QWidget):
 
         QWidget.__init__(self)
 
-        self.global_layout = QHBoxLayout()
-
+        self.global_layout = QVBoxLayout()
+        self.global_layout.addStretch()
+        self.one_down_layout = QHBoxLayout()
         # Put indicators on the left, and readback values on the right
 
+        #This one is the highest indicator layout on the left
         self.indicators_top_layout = QVBoxLayout()
 
         self.indicators_layout = QFormLayout()
@@ -144,18 +148,17 @@ class HVReadbackGui(QWidget):
         self.indicators_layout.addRow(self.FAULT_LED.ICON, self.FAULT_LED.LABEL)
         self.indicators_layout.addRow(self.HEARTBEAT_LED.ICON, self.HEARTBEAT_LED.LABEL)
 
-        self.indicators_top_layout.addStretch()
+        # self.indicators_top_layout.addStretch()
         self.indicators_top_layout.addLayout(self.indicators_layout)
-        self.indicators_top_layout.addStretch()
+        # self.indicators_top_layout.addStretch()
 
 
         self.FAULT_LED.setStatus(Status.OFF)
 
-        self.global_layout.addLayout(self.indicators_top_layout)
+        self.one_down_layout.addLayout(self.indicators_top_layout)
 
         # Read back values:
 
-        self.readback_layout = QVBoxLayout()
 
 
 
@@ -169,17 +172,62 @@ class HVReadbackGui(QWidget):
             unit  = "kV",
             max_value = 125.
         )
-        # self.readout_box = QHBoxLayout()
+        self.readback_layout = QVBoxLayout()
+
         self.readback_layout.addStretch()
         self.readback_layout.addWidget(self.current_display)
         self.readback_layout.addWidget(self.voltage_display)
+
+        self.top_control_mode_space = QHBoxLayout()
+        self.top_control_mode_space.addStretch()
+        self.control_mode_label = QLabel("Control Mode")
+        self.top_control_mode_space.addWidget(self.control_mode_label)
+        self.top_control_mode_space.addStretch()
+
+
+        self.bottom_control_mode_space = QHBoxLayout()
+        self.control_mode_v = IndicatorAndLabel("Voltage")
+        self.control_mode_c = IndicatorAndLabel("Current")
+        self.bottom_control_mode_space.addStretch()
+        self.bottom_control_mode_space.addWidget(self.control_mode_v.ICON)
+        self.bottom_control_mode_space.addWidget(self.control_mode_v.LABEL)
+        self.bottom_control_mode_space.addStretch()
+        self.bottom_control_mode_space.addWidget(self.control_mode_c.ICON)
+        self.bottom_control_mode_space.addWidget(self.control_mode_c.LABEL)
+        self.bottom_control_mode_space.addStretch()
+
+        self.control_mode_holder = QVBoxLayout()
+
+        self.control_mode_holder.addLayout(self.top_control_mode_space)
+        self.control_mode_holder.addLayout(self.bottom_control_mode_space)
+
+        self.readback_layout.addLayout(self.control_mode_holder)
+        self.readback_layout.addStretch()
         self.readback_layout.addStretch()
 
-        self.global_layout.addLayout(self.readback_layout)
+
+
+        self.one_down_layout.addLayout(self.readback_layout)
+        self.global_layout.addLayout(self.one_down_layout)
 
         self.setLayout(self.global_layout)
 
         self.show()
+
+    def setControlMode(self, mode):
+
+        if mode not in ["current", "voltage"]:
+            print(f"ERROR: unknown control mode {mode}")
+
+        if mode == "voltage":
+            self.control_mode_v.setStatus(Status.ON)
+            self.control_mode_c.setStatus(Status.OFF)
+            return
+
+        elif mode == "current":
+            self.control_mode_v.setStatus(Status.OFF)
+            self.control_mode_c.setStatus(Status.ON)
+
 
 class SetParameterWithLabel(QWidget):
 
@@ -253,16 +301,10 @@ class HVSetGUI(QWidget):
 
         self.enable_layout = QVBoxLayout()
 
-        self.control_model_label = QLabel("Control Mode")
-        self.control_mode_v = QRadioButton("Voltage")
-        self.control_mode_c = QRadioButton("Current")
-
         self.set_values_button = QPushButton("Set Values")
         self.reset_button = QPushButton("Reset")
 
-        self.enable_layout.addWidget(self.control_model_label)
-        self.enable_layout.addWidget(self.control_mode_v)
-        self.enable_layout.addWidget(self.control_mode_c)
+
         self.enable_layout.addWidget(self.set_values_button)
         self.enable_layout.addWidget(self.reset_button)
 
@@ -280,6 +322,9 @@ class HV_Gui(QWidget):
         QWidget.__init__(self)
 
 
+        # This is the class that communicates with the physical hardware:
+        self.hv_controller = HvController()
+
         self.global_layout = QVBoxLayout()
 
         self.top_layout = QHBoxLayout()
@@ -289,6 +334,14 @@ class HV_Gui(QWidget):
         hv_layout = QVBoxLayout()
         self.HV_READBACK_GUI = HVReadbackGui()
         self.HV_SET_GUI      = HVSetGUI()
+
+        self.HV_SET_GUI.reset_button.clicked.connect(
+            self.hv_controller.resetHV
+        )
+
+        self.HV_SET_GUI.set_values_button.clicked.connect(
+            self.set_hv
+        )
 
 
         hv_layout.addWidget(self.HV_READBACK_GUI)
@@ -319,9 +372,6 @@ class HV_Gui(QWidget):
 
 
         self.top_layout.addLayout(hv_layout)
-
-        # This is the class that communicates with the physical hardware:
-        self.hv_controller = HvController()
 
 
         # Storage locations for the data
@@ -383,6 +433,34 @@ class HV_Gui(QWidget):
 
     # def setYRange(self, (x_range_start, x_range_end)):
     #     self
+
+    def set_hv(self):
+        '''
+        Update the HV.
+        '''
+        # Block signals to the set button until completion:
+        # self.HV_SET_GUI.blockSignals(True)
+
+        # First, capture the target values
+        target_hv = self.HV_SET_GUI.voltage_setter.entry_widget.displayText()
+        target_curr = self.HV_SET_GUI.current_setter.entry_widget.displayText()
+        target_ramp = self.HV_SET_GUI.ramp_setter.entry_widget.displayText()
+
+        print(target_hv)
+        print(target_curr)
+        print(target_ramp)
+
+
+        # What is the set mode?
+
+        if target_ramp == 0.0:
+            # directly set the voltage:
+            pass
+
+
+
+        # Release the blocked signals:
+        # self.HV_SET_GUI.set_values_button.blockSignals(False)
 
     def connect_hv(self):
         '''
@@ -488,5 +566,12 @@ class HV_Gui(QWidget):
         self.hv_data[self.active_index]['voltage'] = self.hv_controller.voltage
         self.hv_data[self.active_index]['current'] = self.hv_controller.current
         self.active_index += 1
+
+        self.HV_READBACK_GUI.setControlMode(self.hv_controller.ctrlMode)
+
+        self.HV_READBACK_GUI.voltage_display.updateText(self.hv_controller.voltage)
+        self.HV_READBACK_GUI.current_display.updateText(self.hv_controller.current)
+        # voltage_display
+
 
         self.update_plots()
