@@ -17,7 +17,7 @@ import pyqtgraph as pg
 pg.setConfigOptions(antialias=True)
 
 import numpy
-max_dataframe_size = 10000
+max_dataframe_size = 100000
 
 from serial.tools import list_ports
 
@@ -430,7 +430,9 @@ class HV_Gui(QWidget):
         self.setLayout(self.global_layout)
 
         # self.start_hv_monitor()
-
+        self.ramp_timer = QtCore.QTimer()
+        self.ramp_timer.setInterval(1000)
+        self.ramp_timer.timeout.connect(self.ramp_step)
     # def setYRange(self, (x_range_start, x_range_end)):
     #     self
 
@@ -442,9 +444,9 @@ class HV_Gui(QWidget):
         # self.HV_SET_GUI.blockSignals(True)
 
         # First, capture the target values
-        target_hv = self.HV_SET_GUI.voltage_setter.entry_widget.displayText()
-        target_curr = self.HV_SET_GUI.current_setter.entry_widget.displayText()
-        target_ramp = self.HV_SET_GUI.ramp_setter.entry_widget.displayText()
+        target_hv   = float(self.HV_SET_GUI.voltage_setter.entry_widget.displayText())
+        target_curr = float(self.HV_SET_GUI.current_setter.entry_widget.displayText())
+        target_ramp = float(self.HV_SET_GUI.ramp_setter.entry_widget.displayText())
 
         print(target_hv)
         print(target_curr)
@@ -455,12 +457,34 @@ class HV_Gui(QWidget):
 
         if target_ramp == 0.0:
             # directly set the voltage:
-            pass
+            self.hv_controller.setHV(target_hv, target_curr)
 
+        else:
+            # We need to ramp over time.
+            # start by figurng out the current voltage:
+            current_voltage = self.hv_controller.voltage
 
+            difference = numpy.abs(current_voltage - target_hv)
+
+            # Ramping up or down?
+            sign = 1.0 if target_hv > current_voltage else -1.0
+
+            # how many steps to take, every second?
+            self.RAMP_STEPS = int(difference / target_ramp)
+            for i in range(n_steps):
+                next_voltage = current_voltage + i*target_ramp
+                print(next_voltage)
+                timer.setSingleShot(True)
+                timer.start()
 
         # Release the blocked signals:
         # self.HV_SET_GUI.set_values_button.blockSignals(False)
+
+    def ramp_step(self):
+        if self.ramp_interval > self.MAX_RAMP_INTERVAL: return
+
+        self.hv_controller.setHV(next_voltage, target_curr)
+
 
     def connect_hv(self):
         '''
