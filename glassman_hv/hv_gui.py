@@ -4,7 +4,7 @@ import time
 from PyQt5 import QtCore, QtGui
 
 from PyQt5.QtWidgets import (
-    QWidget, QFrame,
+    QWidget, QFrame, QCheckBox,
     QVBoxLayout, QHBoxLayout, QFormLayout,
     QLabel, QComboBox,
     QLineEdit, QRadioButton, QPushButton
@@ -109,8 +109,18 @@ class IndicatorAndLabel(QWidget):
         pixmap = QtGui.QPixmap(status_indicator_icons[status])
 
         self.ICON.setPixmap(pixmap)
-
+        self.STATUS = status
         pass
+
+    def heartbeat(self, status : Status = Status.UNKNOWN):
+        return
+        original_status = self.STATUS
+        print("Original Status", original_status)
+        self.setStatus(status)
+        self.repaint()
+        time.sleep(0.5)
+        self.setStatus(original_status)
+
 
 class HVReadbackGui(QWidget):
 
@@ -331,26 +341,38 @@ class HV_Gui(QWidget):
         # date_axis = pg.graphicsItems.DateAxisItem.DateAxisItem(orientation = 'bottom')
 
         hv_win = pg.PlotWidget(show=True, title="Voltage")
-        hv_win.enableAutoRange("xy",True)
+        hv_win.enableAutoRange("y",False)
+        hv_win.setAspectLocked(lock=False)
+        hv_win.setAutoVisible(y=1.0)
         hv_win.setAxisItems(axisItems={'bottom' : pg.DateAxisItem(orientation='bottom')})
 
         # hv_plot = hv_win.addPlot(title="High Voltage")
         self.hv_item = hv_win.getPlotItem()
         self.hv_plot = self.hv_item.plot(pen='y')
+        self.hv_item.showGrid(x=True, y=True)
         # hv_plot.addItem(self.hv_item)
 
         curr_win = pg.PlotWidget(show=True, title="Current")
-        curr_win.enableAutoRange(True)
+        curr_win.enableAutoRange(False)
+        curr_win.setAxisItems(axisItems={'bottom' : pg.DateAxisItem(orientation='bottom')})
         # curr_win.setAxisItems(axisItems={'bottom' : date_axis})
 
         # curr_plot = curr_win.addPlot(title="Current")
         self.curr_item = curr_win.getPlotItem()
-        # curr_plot.addItem(self.curr_item)
+        self.curr_plot = self.curr_item.plot(pen='y')
+        self.curr_item.showGrid(x=True, y=True)
 
         self.hv_item.setXLink(self.curr_item)
 
+        self.auto_range = QCheckBox("AutoRange")
+        self.auto_range.setChecked(True)
+
+        self.plot_control = QHBoxLayout()
+        self.plot_control.addWidget(self.auto_range)
+
         plot_layout.addWidget(hv_win)
         plot_layout.addWidget(curr_win)
+        plot_layout.addLayout(self.plot_control)
 
         self.top_layout.addLayout(plot_layout)
         self.global_layout.addLayout(self.top_layout)
@@ -358,6 +380,9 @@ class HV_Gui(QWidget):
         self.setLayout(self.global_layout)
 
         # self.start_hv_monitor()
+
+    # def setYRange(self, (x_range_start, x_range_end)):
+    #     self
 
     def connect_hv(self):
         '''
@@ -410,6 +435,9 @@ class HV_Gui(QWidget):
     def hv_fault(self):
         print("HV FAULT DETECTED, NO LOGIC IMPLEMENTED YET")
 
+    def auto_range_plots(self):
+        self.auto_range = True
+
     def update_plots(self):
 
         # Set the data for the plot items.
@@ -433,6 +461,9 @@ class HV_Gui(QWidget):
 
 
         self.hv_plot.setData(times, v)
+        self.curr_plot.setData(times, i)
+        if self.auto_range.checkState():
+            self.hv_item.setXRange(times[0], times[-1], padding=0)
         # self.curr_item.plot(times, i)
 
 
@@ -448,7 +479,7 @@ class HV_Gui(QWidget):
         if self.hv_controller.fault:
             self.hv_fault()
 
-
+        self.HV_READBACK_GUI.HEARTBEAT_LED.heartbeat()
 
         # if hv on, blink the heartbeat:
 
@@ -459,48 +490,3 @@ class HV_Gui(QWidget):
         self.active_index += 1
 
         self.update_plots()
-
-# # -*- coding: utf-8 -*-
-# """
-# This example demonstrates the ability to link the axes of views together
-# Views can be linked manually using the context menu, but only if they are given
-# names.
-# """
-
-# import initExample ## Add path to library (just for examples; you do not need this)
-
-
-# from pyqtgraph.Qt import QtGui, QtCore
-# import numpy as np
-# import pyqtgraph as pg
-
-# app = pg.mkQApp("Linked Views Example")
-# #mw = QtGui.QMainWindow()
-# #mw.resize(800,800)
-
-# x = np.linspace(-50, 50, 1000)
-# y = np.sin(x) / x
-
-# win = pg.GraphicsLayoutWidget(show=True, title="pyqtgraph example: Linked Views")
-# win.resize(800,600)
-
-# win.addLabel("Linked Views", colspan=2)
-# win.nextRow()
-
-# p1 = win.addPlot(x=x, y=y, name="Plot1", title="Plot1")
-# p2 = win.addPlot(x=x, y=y, name="Plot2", title="Plot2: Y linked with Plot1")
-# p2.setLabel('bottom', "Label to test offset")
-# p2.setYLink('Plot1')  ## test linking by name
-
-
-# ## create plots 3 and 4 out of order
-# p4 = win.addPlot(x=x, y=y, name="Plot4", title="Plot4: X -> Plot3 (deferred), Y -> Plot1", row=2, col=1)
-# p4.setXLink('Plot3')  ## Plot3 has not been created yet, but this should still work anyway.
-# p4.setYLink(p1)
-# p3 = win.addPlot(x=x, y=y, name="Plot3", title="Plot3: X linked with Plot1", row=2, col=0)
-# p3.setXLink(p1)
-# p3.setLabel('left', "Label to test offset")
-# #QtGui.QApplication.processEvents()
-
-# if __name__ == '__main__':
-#     pg.exec()
