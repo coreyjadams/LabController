@@ -1,4 +1,5 @@
 import sys
+import time
 
 from PyQt5 import QtCore, QtGui
 
@@ -20,7 +21,18 @@ max_dataframe_size = 10000
 
 from serial.tools import list_ports
 
-from datetime import datetime
+from datetime import datetime, timedelta
+
+class TimeAxisItem(pg.AxisItem):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def tickStrings(self, values, scale, spacing):
+        return [ str(self.int2dt(value)) for value in values]
+        # return [ str(self.int2dt(value)).strftime("%H:%M:%S") for value in values]
+
+    def int2dt(self, ts, ts_mult=1e6):
+        return (timedelta(seconds=float(ts)/ts_mult))
 
 class SupplyParameterDisplay(QFrame):
 
@@ -304,7 +316,7 @@ class HV_Gui(QWidget):
 
         # Storage locations for the data
         dtype = [
-            ('time', "datetime64[us]"),
+            ('elapsed_time',    'float32'),
             ('voltage', 'float32'),
             ('current', 'float32'),
         ]
@@ -316,15 +328,19 @@ class HV_Gui(QWidget):
         plot_layout = QVBoxLayout()
         # Add plots to display HV:
 
-        date_axis = pg.graphicsItems.DateAxisItem.DateAxisItem(orientation = 'bottom')
+        # date_axis = pg.graphicsItems.DateAxisItem.DateAxisItem(orientation = 'bottom')
 
         hv_win = pg.PlotWidget(show=True, title="Voltage")
-        hv_win.setAxisItems(axisItems={'bottom' : date_axis})
+        hv_win.enableAutoRange("xy",True)
+        hv_win.setAxisItems(axisItems={'bottom' : pg.DateAxisItem(orientation='bottom')})
+
         # hv_plot = hv_win.addPlot(title="High Voltage")
         self.hv_item = hv_win.getPlotItem()
+        self.hv_plot = self.hv_item.plot(pen='y')
         # hv_plot.addItem(self.hv_item)
 
         curr_win = pg.PlotWidget(show=True, title="Current")
+        curr_win.enableAutoRange(True)
         # curr_win.setAxisItems(axisItems={'bottom' : date_axis})
 
         # curr_plot = curr_win.addPlot(title="Current")
@@ -375,6 +391,7 @@ class HV_Gui(QWidget):
 
         if self.hv_controller.device.is_open:
             self.hv_controller.closePortHV()
+            self.hv_query_timer.stop()
 
     def start_hv_monitor(self):
         # Open the port for the HV:
@@ -386,6 +403,8 @@ class HV_Gui(QWidget):
         self.hv_query_timer.setInterval(500) # time in ms
         self.hv_query_timer.timeout.connect(self.query_HV)
         self.hv_query_timer.start()
+
+        self.start_time = time.time()
 
 
     def hv_fault(self):
@@ -405,17 +424,16 @@ class HV_Gui(QWidget):
         start_index = numpy.max([0, self.active_index - max_points])
         end_index = start_index + n_points
 
-        print(start_index)
-        print(end_index)
 
-        print(self.hv_data.shape)
-
-        times = self.hv_data[start_index:end_index]['time']
+        times =  self.hv_data[start_index:end_index]['elapsed_time']
+        # times =  [timedelta(t) / 1e6 for t in times]
+        # times = numpy.arange(start_index, end_index)
         v = self.hv_data[start_index:end_index]['voltage']
         i = self.hv_data[start_index:end_index]['current']
 
-        self.hv_item.plot(times, v)
-        self.curr_item.plot(times, i)
+
+        self.hv_plot.setData(times, v)
+        # self.curr_item.plot(times, i)
 
 
     def query_HV(self):
@@ -424,11 +442,9 @@ class HV_Gui(QWidget):
 
         Additionally, ping the heartbeat and update the data points
         '''
-        print("Query")
         self.hv_controller.queryHV()
-        t = datetime.now()
-        print(t)
-        print(numpy.datetime64(t))
+        t = time.time()
+
         if self.hv_controller.fault:
             self.hv_fault()
 
@@ -437,7 +453,7 @@ class HV_Gui(QWidget):
         # if hv on, blink the heartbeat:
 
         # Readback the values:
-        self.hv_data[self.active_index]['time'] = numpy.datetime64(t)
+        self.hv_data[self.active_index]['elapsed_time'] = t - self.start_time
         self.hv_data[self.active_index]['voltage'] = self.hv_controller.voltage
         self.hv_data[self.active_index]['current'] = self.hv_controller.current
         self.active_index += 1
