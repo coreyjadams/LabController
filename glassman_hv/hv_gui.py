@@ -1,5 +1,7 @@
 import sys
 import time
+from datetime import datetime, date
+from teafiles import *
 
 from PyQt5 import QtCore, QtGui
 
@@ -17,7 +19,7 @@ import pyqtgraph as pg
 pg.setConfigOptions(antialias=True)
 
 import numpy
-max_dataframe_size = 100000
+max_dataframe_size = 100000 
 
 from serial.tools import list_ports
 
@@ -80,6 +82,7 @@ status_indicator_icons[Status.ON]      = "glassman_hv/icons/green-led-on.png"
 status_indicator_icons[Status.FAULT]   = "glassman_hv/icons/red-led-on.png"
 status_indicator_icons[Status.UNKNOWN] = "glassman_hv/icons/blue-led-on.png"
 
+dict_volt = {}
 
 class IndicatorAndLabel(QWidget):
 
@@ -125,6 +128,8 @@ class IndicatorAndLabel(QWidget):
 
 
 class HVReadbackGui(QWidget):
+
+    stepping = QtCore.pyqtSignal(float)
 
     def __init__(self):
 
@@ -317,6 +322,7 @@ class HV_Gui(QWidget):
     This class describes a hv graphical user interface.
     """
 
+
     def __init__(self):
 
         QWidget.__init__(self)
@@ -407,6 +413,8 @@ class HV_Gui(QWidget):
         curr_win.setAxisItems(axisItems={'bottom' : pg.DateAxisItem(orientation='bottom')})
         # curr_win.setAxisItems(axisItems={'bottom' : date_axis})
 
+        new_var = 'nmew'
+
         # curr_plot = curr_win.addPlot(title="Current")
         self.curr_item = curr_win.getPlotItem()
         self.curr_plot = self.curr_item.plot(pen='y')
@@ -429,19 +437,20 @@ class HV_Gui(QWidget):
 
         self.setLayout(self.global_layout)
 
-        # self.start_hv_monitor()
+        self.start_hv_monitor()
+        
         self.ramp_timer = QtCore.QTimer()
         self.ramp_timer.setInterval(1000)
         self.ramp_timer.timeout.connect(self.ramp_step)
     # def setYRange(self, (x_range_start, x_range_end)):
-    #     self
+        # self
 
     def set_hv(self):
         '''
         Update the HV.
         '''
         # Block signals to the set button until completion:
-        # self.HV_SET_GUI.blockSignals(True)
+        self.HV_SET_GUI.blockSignals(True)
 
         # First, capture the target values
         target_hv   = float(self.HV_SET_GUI.voltage_setter.entry_widget.displayText())
@@ -464,26 +473,46 @@ class HV_Gui(QWidget):
             # start by figurng out the current voltage:
             current_voltage = self.hv_controller.voltage
 
-            difference = numpy.abs(current_voltage - target_hv)
+            difference = numpy.abs(current_voltage - target_hv)   # doesnt "current_voltage" change?
 
             # Ramping up or down?
             sign = 1.0 if target_hv > current_voltage else -1.0
 
+            
             # how many steps to take, every second?
-            self.RAMP_STEPS = int(difference / target_ramp)
+            # self.RAMP_STEPS = int(difference / target_ramp)
+            n_steps = int(difference / target_ramp)
             for i in range(n_steps):
                 next_voltage = current_voltage + i*target_ramp
+                
+                key = str('voltage'+str(i))
+                dict_volt[key] = next_voltage 
                 print(next_voltage)
-                timer.setSingleShot(True)
-                timer.start()
-
+                
+                timer = QtCore.QTimer()
+                timer.singleShot(True)
+            print(dict_volt)
         # Release the blocked signals:
-        # self.HV_SET_GUI.set_values_button.blockSignals(False)
+        self.HV_SET_GUI.set_values_button.blockSignals(False)
 
-    def ramp_step(self):
-        if self.ramp_interval > self.MAX_RAMP_INTERVAL: return
+    @QtCore.pyqtSlot()
+    def ramp_step(self, i):            # this function changes the vol and curr by specified increments
+        target_curr = float(self.HV_SET_GUI.current_setter.entry_widget.displayText())
+        target_hv   = float(self.HV_SET_GUI.voltage_setter.entry_widget.displayText())
+        current_voltage = self.hv_controller.voltage
+        target_ramp = float(self.HV_SET_GUI.ramp_setter.entry_widget.displayText())
 
-        self.hv_controller.setHV(next_voltage, target_curr)
+        difference = numpy.abs(current_voltage - target_hv)
+        
+        self.ramp_interval = int(difference / target_ramp)
+        self.MAX_RAMP_INTERVAL = int()    # Unknown what max interval is supposed to be
+
+        #self.hv_controller.setHV(dict_volt['voltage'+str(i)],target_curr)
+        
+        if self.ramp_interval < self.MAX_RAMP_INTERVAL: 
+           return self.hv_controller.setHV(dict_volt['voltage'+str(i)],target_curr)            
+            
+            #return self.hv_controller.setHV(next_voltage, target_curr)
 
 
     def connect_hv(self):
@@ -532,7 +561,9 @@ class HV_Gui(QWidget):
         self.hv_query_timer.start()
 
         self.start_time = time.time()
-
+        
+        self.curr_date = datetime.now()
+        self.str_date = self.curr_date.isoformat
 
     def hv_fault(self):
         print("HV FAULT DETECTED, NO LOGIC IMPLEMENTED YET")
@@ -578,6 +609,7 @@ class HV_Gui(QWidget):
         self.hv_controller.queryHV()
         t = time.time()
 
+
         if self.hv_controller.fault:
             self.hv_fault()
 
@@ -599,3 +631,17 @@ class HV_Gui(QWidget):
 
 
         self.update_plots()
+    
+        self.store_hv_info()
+                        
+
+    def store_hv_info(self):
+
+        self.filename = self.str_date
+
+        with TeaFile.create(self.filename, "Time Voltage Current", "qdd") as tf:
+            t = time.time() - self.start_time
+            max_v = 125.0
+            while self.hv_controller.voltage < max_v and self.hv_controller.device.is_open:
+                tf.write(t, self.hv_controller.voltage, self.hv_controller.current)
+
