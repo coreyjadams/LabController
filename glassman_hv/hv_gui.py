@@ -13,6 +13,7 @@ from PyQt5.QtWidgets import (
     )
 
 
+
 from . HVController import HvController
 
 import pyqtgraph as pg
@@ -437,9 +438,12 @@ class HV_Gui(QWidget):
 
         self.setLayout(self.global_layout)
 
-        self.start_hv_monitor()
+        #self.start_hv_monitor()
         
         self.counter = 0
+
+        #self.filename = self.str_date
+        #tf = TeaFile.create(self.filename, "Time Voltage Current", "qdd","hvps measurements")
 
         self.ramp_timer = QtCore.QTimer()
         self.ramp_timer.setInterval(1000)
@@ -465,6 +469,10 @@ class HV_Gui(QWidget):
         print(target_hv)
         print(target_curr)
         print(target_ramp)
+
+        #################################
+        # THIS IF ELSE IS ABOUT THE RAMP RATE
+        #################################
 
 
         # What is the set mode?
@@ -552,8 +560,9 @@ class HV_Gui(QWidget):
         self.start_time = time.time()
         
         self.curr_date = datetime.now()
-        self.str_date = self.curr_date.isoformat
-
+        self.str_date = 'hvps.tea'
+        self.open_t_file()
+    
     def hv_fault(self):
         print("HV FAULT DETECTED, NO LOGIC IMPLEMENTED YET")
 
@@ -620,17 +629,36 @@ class HV_Gui(QWidget):
 
 
         self.update_plots()
-    
-        self.store_hv_info()
-                        
 
-    def store_hv_info(self):
+        self.write_t_file()
+        
+        
+        
 
+
+    def open_t_file(self):
         self.filename = self.str_date
+        self.tf = TeaFile.create(self.filename, "Time Voltage Current", "qdd","hvps measurements")
+        print(self.filename)
+    
+    def write_t_file(self):
+        t = time.time() - self.start_time
+        self.tf.write(int(t), self.hv_controller.voltage, self.hv_controller.current)
+        
 
-        with TeaFile.create(self.filename, "Time Voltage Current", "qdd") as tf:
-            t = time.time() - self.start_time
-            max_v = 125.0
-            while self.hv_controller.voltage < max_v and self.hv_controller.device.is_open:
-                tf.write(t, self.hv_controller.voltage, self.hv_controller.current)
+
+
+
+    
+    
+    #def store_hv_info(self):
+#
+    #    
+    #    self.filename = self.str_date
+    #    print(self.filename)
+    #    with TeaFile.create(self.filename, "Time Voltage Current", "qdd") as tf:
+    #        t = time.time() - self.start_time
+    #        max_v = 125.0
+    #        while self.hv_controller.voltage < max_v and self.hv_controller.device.is_open:   # infinite loop
+    #            tf.write(int(t), self.hv_controller.voltage, self.hv_controller.current)
 
