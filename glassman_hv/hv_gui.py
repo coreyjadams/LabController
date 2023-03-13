@@ -439,6 +439,8 @@ class HV_Gui(QWidget):
 
         self.start_hv_monitor()
         
+        self.counter = 0
+
         self.ramp_timer = QtCore.QTimer()
         self.ramp_timer.setInterval(1000)
         self.ramp_timer.timeout.connect(self.ramp_step)
@@ -454,7 +456,10 @@ class HV_Gui(QWidget):
 
         # First, capture the target values
         target_hv   = float(self.HV_SET_GUI.voltage_setter.entry_widget.displayText())
+        
+        global target_curr
         target_curr = float(self.HV_SET_GUI.current_setter.entry_widget.displayText())
+        
         target_ramp = float(self.HV_SET_GUI.ramp_setter.entry_widget.displayText())
 
         print(target_hv)
@@ -487,30 +492,14 @@ class HV_Gui(QWidget):
                 
                 key = str('voltage'+str(i))
                 dict_volt[key] = next_voltage 
-                print(next_voltage)
                 
-                timer = QtCore.QTimer()
-                timer.singleShot(True)
-            print(dict_volt)
         # Release the blocked signals:
         self.HV_SET_GUI.set_values_button.blockSignals(False)
 
-    @QtCore.pyqtSlot()
-    def ramp_step(self, i):            # this function changes the vol and curr by specified increments
-        target_curr = float(self.HV_SET_GUI.current_setter.entry_widget.displayText())
-        target_hv   = float(self.HV_SET_GUI.voltage_setter.entry_widget.displayText())
-        current_voltage = self.hv_controller.voltage
-        target_ramp = float(self.HV_SET_GUI.ramp_setter.entry_widget.displayText())
-
-        difference = numpy.abs(current_voltage - target_hv)
+    def ramp_step(self):            # this function changes the vol and curr by specified increments
         
-        self.ramp_interval = int(difference / target_ramp)
-        self.MAX_RAMP_INTERVAL = int()    # Unknown what max interval is supposed to be
-
-        #self.hv_controller.setHV(dict_volt['voltage'+str(i)],target_curr)
-        
-        if self.ramp_interval < self.MAX_RAMP_INTERVAL: 
-           return self.hv_controller.setHV(dict_volt['voltage'+str(i)],target_curr)            
+        self.hv_controller.setHV(dict_volt['voltage'+str(self.counter)],target_curr)
+        self.counter += 1
             
             #return self.hv_controller.setHV(next_voltage, target_curr)
 
