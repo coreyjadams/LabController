@@ -491,7 +491,7 @@ class HV_Gui(QWidget):
             # Ramping up or down?
             sign = 1.0 if target_hv > current_voltage else -1.0
 
-            
+        
             # how many steps to take, every second?
             # self.RAMP_STEPS = int(difference / target_ramp)
             n_steps = int(difference / target_ramp)
