@@ -307,7 +307,7 @@ class HVSetGUI(QWidget):
 
         self.enable_layout = QVBoxLayout()
 
-        self.set_values_button = QPushButton("Set Values")
+        self.set_values_button = QPushButton("Set Values")        
         self.reset_button = QPushButton("Reset")
 
 
@@ -445,9 +445,7 @@ class HV_Gui(QWidget):
         #self.filename = self.str_date
         #tf = TeaFile.create(self.filename, "Time Voltage Current", "qdd","hvps measurements")
 
-        self.ramp_timer = QtCore.QTimer()
-        self.ramp_timer.setInterval(1000)
-        self.ramp_timer.timeout.connect(self.ramp_step)
+
     # def setYRange(self, (x_range_start, x_range_end)):
         # self
 
@@ -459,16 +457,16 @@ class HV_Gui(QWidget):
         self.HV_SET_GUI.blockSignals(True)
 
         # First, capture the target values
-        target_hv   = float(self.HV_SET_GUI.voltage_setter.entry_widget.displayText())
+        self.target_hv   = float(self.HV_SET_GUI.voltage_setter.entry_widget.displayText())
         
         global target_curr
-        target_curr = float(self.HV_SET_GUI.current_setter.entry_widget.displayText())
+        self.target_curr = float(self.HV_SET_GUI.current_setter.entry_widget.displayText())
         
-        target_ramp = float(self.HV_SET_GUI.ramp_setter.entry_widget.displayText())
+        self.target_ramp = float(self.HV_SET_GUI.ramp_setter.entry_widget.displayText())
 
-        print(target_hv)
-        print(target_curr)
-        print(target_ramp)
+        print(self.target_hv)
+        print(self.target_curr)
+        print(self.target_ramp)
 
         #################################
         # THIS IF ELSE IS ABOUT THE RAMP RATE
@@ -477,37 +475,58 @@ class HV_Gui(QWidget):
 
         # What is the set mode?
 
-        if target_ramp == 0.0:
+        if self.target_ramp == 0.0:
             # directly set the voltage:
-            self.hv_controller.setHV(target_hv, target_curr)
+            self.hv_controller.setHV(self.target_hv, self.target_curr)
 
         else:
-            # We need to ramp over time.
-            # start by figurng out the current voltage:
-            current_voltage = self.hv_controller.voltage
-
-            difference = numpy.abs(current_voltage - target_hv)   # doesnt "current_voltage" change?
-
-            # Ramping up or down?
-            sign = 1.0 if target_hv > current_voltage else -1.0
+            self.start_ramp()        
 
         
-            # how many steps to take, every second?
-            # self.RAMP_STEPS = int(difference / target_ramp)
-            n_steps = int(difference / target_ramp)
-            for i in range(n_steps):
-                next_voltage = current_voltage + i*target_ramp
-                
-                key = str('voltage'+str(i))
-                dict_volt[key] = next_voltage 
+        #    # We need to ramp over time.
+        #    # start by figurng out the current voltage:
+        #    current_voltage = self.hv_controller.voltage
+#
+        #    difference = numpy.abs(current_voltage - self.target_hv)   # doesnt "current_voltage" change?
+#
+        #    # Ramping up or down?
+        #    sign = 1.0 if self.target_hv > current_voltage else -1.0
+#
+        #    # how many steps to take, every second?
+        #    # self.RAMP_STEPS = int(difference / target_ramp)
+        #    n_steps = int(difference / self.target_ramp)
+        #    for i in range(n_steps):
+        #        global next_voltage
+        #        next_voltage = current_voltage + i*self.target_ramp
+        #        
+        #        key = str('voltage'+str(i))
+        #        dict_volt[key] = next_voltage 
                 
         # Release the blocked signals:
         self.HV_SET_GUI.set_values_button.blockSignals(False)
 
-    def ramp_step(self):            # this function changes the vol and curr by specified increments
+    #def ramp_step(self):            # this function changes the vol and curr by specified increments every second
+    def start_ramp(self):
+        self.start_time = time.time()
+        self.timer = QtCore.QTimer()
+        self.timer.setInterval(1000) # call update_voltage function every second
+        self.timer.timeout.connect(self.update_voltage)
         
-        self.hv_controller.setHV(dict_volt['voltage'+str(self.counter)],target_curr)
-        self.counter += 1
+    def update_voltage(self):
+        elapsed_time = time.time() - self.start_time
+        current_voltage = self.hv_controller.voltage
+        target_voltage = self.target_hv
+        ramp_rate = self.target_ramp
+        if target_voltage > current_voltage:
+            new_voltage = min(current_voltage + ramp_rate * elapsed_time, target_voltage)
+        else:
+            new_voltage = max(current_voltage - ramp_rate * elapsed_time, target_voltage)
+        self.hv_controller.setHV(new_voltage) 
+        
+
+
+        #self.hv_controller.setHV(next_voltage,target_curr)
+        #self.counter += 1
             
             #return self.hv_controller.setHV(next_voltage, target_curr)
 
@@ -638,7 +657,7 @@ class HV_Gui(QWidget):
 
     def open_t_file(self):
         self.filename = self.str_date
-        self.tf = TeaFile.create(self.filename, "Time Voltage Current", "qdd","hvps measurements")
+        self.tf = TeaFile.create(self.filename, "Time Voltage Current", "qdd","hvps measurements")  # change date format !!!!
         print(self.filename)
     
     def write_t_file(self):
