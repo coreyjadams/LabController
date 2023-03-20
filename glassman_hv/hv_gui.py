@@ -491,11 +491,11 @@ class HV_Gui(QWidget):
             # Ramping up or down?
             sign = 1.0 if target_hv > current_voltage else -1.0
 
-        
             # how many steps to take, every second?
             # self.RAMP_STEPS = int(difference / target_ramp)
             n_steps = int(difference / target_ramp)
             for i in range(n_steps):
+                global next_voltage
                 next_voltage = current_voltage + i*target_ramp
                 
                 key = str('voltage'+str(i))
@@ -506,8 +506,8 @@ class HV_Gui(QWidget):
 
     def ramp_step(self):            # this function changes the vol and curr by specified increments
         
-        self.hv_controller.setHV(dict_volt['voltage'+str(self.counter)],target_curr)
-        self.counter += 1
+        self.hv_controller.setHV(next_voltage,target_curr)
+        #self.counter += 1
             
             #return self.hv_controller.setHV(next_voltage, target_curr)
 
