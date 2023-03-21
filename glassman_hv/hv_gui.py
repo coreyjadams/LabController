@@ -459,7 +459,7 @@ class HV_Gui(QWidget):
         # First, capture the target values
         self.target_hv   = float(self.HV_SET_GUI.voltage_setter.entry_widget.displayText())
         
-        global target_curr
+        
         self.target_curr = float(self.HV_SET_GUI.current_setter.entry_widget.displayText())
         
         self.target_ramp = float(self.HV_SET_GUI.ramp_setter.entry_widget.displayText())
@@ -483,26 +483,6 @@ class HV_Gui(QWidget):
             self.start_ramp()        
 
         
-        #    # We need to ramp over time.
-        #    # start by figurng out the current voltage:
-        #    current_voltage = self.hv_controller.voltage
-#
-        #    difference = numpy.abs(current_voltage - self.target_hv)   # doesnt "current_voltage" change?
-#
-        #    # Ramping up or down?
-        #    sign = 1.0 if self.target_hv > current_voltage else -1.0
-#
-        #    # how many steps to take, every second?
-        #    # self.RAMP_STEPS = int(difference / target_ramp)
-        #    n_steps = int(difference / self.target_ramp)
-        #    for i in range(n_steps):
-        #        global next_voltage
-        #        next_voltage = current_voltage + i*self.target_ramp
-        #        
-        #        key = str('voltage'+str(i))
-        #        dict_volt[key] = next_voltage 
-                
-        # Release the blocked signals:
         self.HV_SET_GUI.set_values_button.blockSignals(False)
 
     #def ramp_step(self):            # this function changes the vol and curr by specified increments every second
@@ -519,9 +499,10 @@ class HV_Gui(QWidget):
         ramp_rate = self.target_ramp
         if target_voltage > current_voltage:
             new_voltage = min(current_voltage + ramp_rate * elapsed_time, target_voltage)
+            self.hv_controller.setHV(new_voltage)
         else:
             new_voltage = max(current_voltage - ramp_rate * elapsed_time, target_voltage)
-        self.hv_controller.setHV(new_voltage) 
+            self.hv_controller.setHV(new_voltage)
         
 
 
@@ -579,7 +560,7 @@ class HV_Gui(QWidget):
         self.start_time = time.time()
         
         self.curr_date = datetime.now()
-        self.str_date = 'hvps.tea'
+        self.str_date = 'hvps_' + datetime.now().isoformat("_")+'.tea'
         self.open_t_file()
     
     def hv_fault(self):
@@ -661,8 +642,13 @@ class HV_Gui(QWidget):
         print(self.filename)
     
     def write_t_file(self):
-        t = time.time() - self.start_time
-        self.tf.write(int(t), self.hv_controller.voltage, self.hv_controller.current)
+        hoje = datetime.today().isoformat()
+        hj_iso = datetime.fromisoformat(str(hoje))
+        t = (time.time() - self.start_time)*1000
+        self.tf.write(DateTime.parse(f'{str(hj_iso.year)}-{str(hj_iso.month)}-{str(hj_iso.day)}',
+                                    '%Y-%m-%d') + Duration(ticks = t), 
+                                     self.hv_controller.voltage, 
+                                     self.hv_controller.current)
         
 
 
