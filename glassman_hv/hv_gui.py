@@ -323,7 +323,6 @@ class HV_Gui(QWidget):
     This class describes a hv graphical user interface.
     """
 
-
     def __init__(self):
 
         QWidget.__init__(self)
@@ -349,7 +348,11 @@ class HV_Gui(QWidget):
         self.HV_SET_GUI.set_values_button.clicked.connect(
             self.set_hv
         )
-
+        
+        #self.starting_time = time.time()
+        #self.HV_SET_GUI.set_values_button.clicked.connect(
+        #    self.starting_time
+        #)
 
         hv_layout.addWidget(self.HV_READBACK_GUI)
         hv_layout.addWidget(self.HV_SET_GUI)
@@ -453,6 +456,7 @@ class HV_Gui(QWidget):
         '''
         Update the HV.
         '''
+        self.starting_time = time.time()
         # Block signals to the set button until completion:
         self.HV_SET_GUI.blockSignals(True)
 
@@ -487,13 +491,13 @@ class HV_Gui(QWidget):
 
     #def ramp_step(self):            # this function changes the vol and curr by specified increments every second
     def start_ramp(self):
-        self.start_time = time.time()
+        #self.start_time = time.time()
         self.timer = QtCore.QTimer()
         self.timer.setInterval(1000) # call update_voltage function every second
         self.timer.timeout.connect(self.update_voltage)
         
     def update_voltage(self):
-        elapsed_time = time.time() - self.start_time
+        elapsed_time = time.time() - self.starting_time
         current_voltage = self.hv_controller.voltage
         target_voltage = self.target_hv
         ramp_rate = self.target_ramp
@@ -560,7 +564,8 @@ class HV_Gui(QWidget):
         self.start_time = time.time()
         
         self.curr_date = datetime.now()
-        self.str_date = 'hvps_' + datetime.now().isoformat("_")+'.tea'
+        #self.str_date = 'hvps_' + datetime.now().isoformat("_")+'.tea'
+        self.str_date = 'hvps2.tea'
         self.open_t_file()
     
     def hv_fault(self):
@@ -645,10 +650,10 @@ class HV_Gui(QWidget):
         hoje = datetime.today().isoformat()
         hj_iso = datetime.fromisoformat(str(hoje))
         t = (time.time() - self.start_time)*1000
-        self.tf.write(DateTime.parse(f'{str(hj_iso.year)}-{str(hj_iso.month)}-{str(hj_iso.day)}',
-                                    '%Y-%m-%d') + Duration(ticks = t), 
-                                     self.hv_controller.voltage, 
-                                     self.hv_controller.current)
+        TeaFile.openread(self.filename)
+        self.tf.write(DateTime.parse(f'{str(hj_iso.year)}-{str(hj_iso.month)}-{str(hj_iso.day)}','%Y-%m-%d') + Duration(ticks = t)
+        ,  self.hv_controller.voltage
+        ,  self.hv_controller.current)
         
 
 
