@@ -83,7 +83,6 @@ status_indicator_icons[Status.ON]      = "glassman_hv/icons/green-led-on.png"
 status_indicator_icons[Status.FAULT]   = "glassman_hv/icons/red-led-on.png"
 status_indicator_icons[Status.UNKNOWN] = "glassman_hv/icons/blue-led-on.png"
 
-dict_volt = {}
 
 class IndicatorAndLabel(QWidget):
 
@@ -456,7 +455,7 @@ class HV_Gui(QWidget):
         '''
         Update the HV.
         '''
-        self.starting_time = time.time()
+        #self.starting_time = time.time()
         # Block signals to the set button until completion:
         self.HV_SET_GUI.blockSignals(True)
 
@@ -468,14 +467,24 @@ class HV_Gui(QWidget):
         
         self.target_ramp = float(self.HV_SET_GUI.ramp_setter.entry_widget.displayText())
 
+
         print(self.target_hv)
         print(self.target_curr)
         print(self.target_ramp)
 
+        self.i = []
+        self.n = 0
+
+        diff = numpy.abs(self.target_hv - self.hv_controller.voltage)
+        ramp_rate = self.target_ramp
+        nsteps = numpy.abs(diff / ramp_rate)
+
+        for i in range(int(nsteps)):
+            self.i.append(i)
+        
         #################################
         # THIS IF ELSE IS ABOUT THE RAMP RATE
-        #################################
-
+        ################################# 
 
         # What is the set mode?
 
@@ -495,19 +504,28 @@ class HV_Gui(QWidget):
         self.timer = QtCore.QTimer()
         self.timer.setInterval(1000) # call update_voltage function every second
         self.timer.timeout.connect(self.update_voltage)
-        
+
     def update_voltage(self):
-        elapsed_time = time.time() - self.starting_time
         current_voltage = self.hv_controller.voltage
         target_voltage = self.target_hv
+        diff = numpy.abs(target_voltage - current_voltage)
         ramp_rate = self.target_ramp
-        if target_voltage > current_voltage:
-            new_voltage = min(current_voltage + ramp_rate * elapsed_time, target_voltage)
-            self.hv_controller.setHV(new_voltage)
-        else:
-            new_voltage = max(current_voltage - ramp_rate * elapsed_time, target_voltage)
-            self.hv_controller.setHV(new_voltage)
-        
+        nsteps = numpy.abs(diff / ramp_rate)
+        step_size = diff*ramp_rate
+        self.run_loop()
+
+        while self.n <= (len(self.i) - 1):
+
+            if target_voltage > current_voltage:
+                new_voltage = min(current_voltage + self.i[self.n] * step_size, target_voltage)
+                self.hv_controller.setHV(new_voltage)
+            else:
+                new_voltage = max(current_voltage - self.i[self.n] * step_size, target_voltage)
+                self.hv_controller.setHV(new_voltage)
+    
+    def run_loop(self):
+        # Increment the loop iteration count
+        self.n += 1
 
 
         #self.hv_controller.setHV(next_voltage,target_curr)
