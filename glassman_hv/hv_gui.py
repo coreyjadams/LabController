@@ -472,15 +472,13 @@ class HV_Gui(QWidget):
         print(self.target_curr)
         print(self.target_ramp)
 
-        self.i = []
-        self.n = 0
+        #self.i = []
+        #self.n = 0
 
-        diff = numpy.abs(self.target_hv - self.hv_controller.voltage)
-        ramp_rate = self.target_ramp
-        nsteps = numpy.abs(diff / ramp_rate)
+        self.diff = numpy.abs(self.target_hv - self.hv_controller.voltage)
+        self.ramp_rate = self.target_ramp
 
-        for i in range(int(nsteps)):
-            self.i.append(i)
+
         
         #################################
         # THIS IF ELSE IS ABOUT THE RAMP RATE
@@ -493,6 +491,11 @@ class HV_Gui(QWidget):
             self.hv_controller.setHV(self.target_hv, self.target_curr)
 
         else:
+            self.i = []
+            self.n = 0            
+            nsteps = numpy.abs(self.diff / self.ramp_rate)
+            for i in range(int(nsteps)):
+                self.i.append(i)            
             self.start_ramp()        
 
         
@@ -509,9 +512,9 @@ class HV_Gui(QWidget):
         current_voltage = self.hv_controller.voltage
         target_voltage = self.target_hv
         diff = numpy.abs(target_voltage - current_voltage)
-        ramp_rate = self.target_ramp
-        nsteps = numpy.abs(diff / ramp_rate)
-        step_size = diff*ramp_rate
+        #ramp_rate = self.target_ramp
+        #nsteps = numpy.abs(diff / ramp_rate)
+        step_size = self.diff*self.ramp_rate
         self.run_loop()
 
         while self.n <= (len(self.i) - 1):
@@ -583,7 +586,7 @@ class HV_Gui(QWidget):
         
         self.curr_date = datetime.now()
         #self.str_date = 'hvps_' + datetime.now().isoformat("_")+'.tea'
-        self.str_date = 'hvps2.tea'
+        self.str_date = 'hvps3_27_mar_2023.tea'
         self.open_t_file()
     
     def hv_fault(self):
