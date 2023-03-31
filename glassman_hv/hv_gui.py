@@ -512,14 +512,18 @@ class HV_Gui(QWidget):
         pause = float(duration/nsteps)
         if target_voltage > current_voltage:
             voltage = numpy.linspace(current_voltage,target_hv,nsteps)
+            print(voltage)
             for voltages in voltage:
                     self.hv_controller.setHV(voltages,target_curr)
+                    print(pause)
                     time.sleep(pause)
             
         else:
             voltage2 = numpy.linspace(current_voltage,target_hv,nsteps)
+            print(voltage2)
             for voltages in voltage2:
                     self.hv_controller.setHV(voltages,target_curr)
+                    print(pause)
                     time.sleep(pause)
 
             
@@ -581,7 +585,7 @@ class HV_Gui(QWidget):
         
         self.curr_date = datetime.now()
         #self.str_date = 'hvps_' + datetime.now().isoformat("_")+'.tea'
-        self.str_date = 'hvps3_27_mar_2023.tea'
+        self.str_date = 'hvps3_31_mar_2023.tea'
         self.open_t_file()
     
     def hv_fault(self):
