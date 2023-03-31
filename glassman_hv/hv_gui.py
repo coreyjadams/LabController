@@ -442,8 +442,6 @@ class HV_Gui(QWidget):
 
         #self.start_hv_monitor()
         
-        self.counter = 0
-
         #self.filename = self.str_date
         #tf = TeaFile.create(self.filename, "Time Voltage Current", "qdd","hvps measurements")
 
@@ -510,28 +508,24 @@ class HV_Gui(QWidget):
         step_size = diff*self.ramp_rate
         duration = target_hv/ramp_rate
         pause = float(duration/nsteps)
+        self.counter = 0
+
         if target_voltage > current_voltage:
-            voltage = numpy.linspace(current_voltage,target_hv,nsteps)
-            print(voltage)
-            for voltages in voltage:
-                    self.hv_controller.setHV(voltages,target_curr)
-                    print(pause)
-                    time.sleep(pause)
+            voltage = numpy.linspace(current_voltage,target_hv,nsteps)            
+            self.hv_controller.setHV(voltage[self.counter],target_curr)
+            print(pause)
+            QtCore.QTimer.singleShot(pause, self.count)
             
         else:
             voltage2 = numpy.linspace(current_voltage,target_hv,nsteps)
-            print(voltage2)
-            for voltages in voltage2:
-                    self.hv_controller.setHV(voltages,target_curr)
-                    print(pause)
-                    time.sleep(pause)
+            self.hv_controller.setHV(voltage2[self.counter],target_curr)
+            print(pause)
+            QtCore.QTimer.singleShot(pause, self.count)
 
             
+    def count(self):
+        self.counter += 1
 
-
-
-        #self.hv_controller.setHV(next_voltage,target_curr)
-        #self.counter += 1
             
             #return self.hv_controller.setHV(next_voltage, target_curr)
 
