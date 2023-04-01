@@ -4,7 +4,7 @@ from datetime import datetime, date
 from teafiles import *
 
 from PyQt5 import QtCore, QtGui
-
+from PyQt5 import QtTest
 from PyQt5.QtWidgets import (
     QWidget, QFrame, QCheckBox,
     QVBoxLayout, QHBoxLayout, QFormLayout,
@@ -506,26 +506,27 @@ class HV_Gui(QWidget):
         ramp_rate = self.ramp_rate
         nsteps = int(numpy.abs(diff / ramp_rate))
         step_size = diff*self.ramp_rate
-        duration = target_hv/ramp_rate
+        duration = diff/ramp_rate
         pause = float(duration/nsteps)
         self.counter = 0
 
         if target_voltage > current_voltage:
-            voltage = numpy.linspace(current_voltage,target_hv,nsteps)            
-            self.hv_controller.setHV(voltage[self.counter],target_curr)
-            print(pause)
-            QtCore.QTimer.singleShot(pause, self.count)
-            
+            self.voltage1 = numpy.linspace(current_voltage,target_hv,nsteps)            
+        
+            for voltages in self.voltage1:
+                    self.hv_controller.setHV(voltages,target_curr)
+                    print(pause)
+                    QtTest.QTest.qWait(int(float('{0:1.0f}'.format(pause*1000))))
         else:
-            voltage2 = numpy.linspace(current_voltage,target_hv,nsteps)
-            self.hv_controller.setHV(voltage2[self.counter],target_curr)
-            print(pause)
-            QtCore.QTimer.singleShot(pause, self.count)
-
+            self.voltage2 = numpy.linspace(current_voltage,target_hv,nsteps)
             
-    def count(self):
-        self.counter += 1
-
+            for voltages in self.voltage2:
+                    self.hv_controller.setHV(voltages,target_curr)
+                    print(pause)
+                    QtTest.QTest.qWait(int(float('{0:1.0f}'.format(pause*1000))))
+                    
+    #def count(self):
+    #    self.counter += 1
             
             #return self.hv_controller.setHV(next_voltage, target_curr)
 
