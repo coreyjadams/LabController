@@ -348,10 +348,10 @@ class HV_Gui(QWidget):
             self.set_hv
         )
         
-        #self.starting_time = time.time()
         #self.HV_SET_GUI.set_values_button.clicked.connect(
-        #    self.starting_time
+        #    self.new_tfile
         #)
+
 
         hv_layout.addWidget(self.HV_READBACK_GUI)
         hv_layout.addWidget(self.HV_SET_GUI)
@@ -449,6 +449,10 @@ class HV_Gui(QWidget):
     # def setYRange(self, (x_range_start, x_range_end)):
         # self
 
+    #def new_tfile(self):
+    #    self.str_date = 'hvps_' + datetime.now().isoformat("_")+'.tea'
+    #    self.open_t_file()
+
     def set_hv(self):
         '''
         Update the HV.
@@ -469,7 +473,6 @@ class HV_Gui(QWidget):
         print(target_hv)
         print(target_curr)
         print(target_ramp)
-
 
         self.ramp_rate = target_ramp
 
@@ -515,14 +518,14 @@ class HV_Gui(QWidget):
         
             for voltages in self.voltage1:
                     self.hv_controller.setHV(voltages,target_curr)
-                    print(pause)
+                    
                     QtTest.QTest.qWait(int(float('{0:1.0f}'.format(pause*1000))))
         else:
             self.voltage2 = numpy.linspace(current_voltage,target_hv,nsteps)
             
             for voltages in self.voltage2:
                     self.hv_controller.setHV(voltages,target_curr)
-                    print(pause)
+                    
                     QtTest.QTest.qWait(int(float('{0:1.0f}'.format(pause*1000))))
                     
     #def count(self):
@@ -579,8 +582,9 @@ class HV_Gui(QWidget):
         self.start_time = time.time()
         
         self.curr_date = datetime.now()
-        #self.str_date = 'hvps_' + datetime.now().isoformat("_")+'.tea'
-        self.str_date = 'hvps3_31_mar_2023.tea'
+        self.str_date = 'hvps_' + datetime.now().isoformat("_")+'.tea'
+        self.str_name = self.str_date[:24].replace(':', ".") + '.tea'
+        #self.str_date = 'hvps3_31_mar_2023.tea'
         self.open_t_file()
     
     def hv_fault(self):
@@ -657,7 +661,7 @@ class HV_Gui(QWidget):
 
 
     def open_t_file(self):
-        self.filename = self.str_date
+        self.filename = self.str_name
         self.tf = TeaFile.create(self.filename, "Time Voltage Current", "qdd","hvps measurements")  # change date format !!!!
         print(self.filename)
     
@@ -676,14 +680,4 @@ class HV_Gui(QWidget):
 
     
     
-    #def store_hv_info(self):
-#
-    #    
-    #    self.filename = self.str_date
-    #    print(self.filename)
-    #    with TeaFile.create(self.filename, "Time Voltage Current", "qdd") as tf:
-    #        t = time.time() - self.start_time
-    #        max_v = 125.0
-    #        while self.hv_controller.voltage < max_v and self.hv_controller.device.is_open:   # infinite loop
-    #            tf.write(int(t), self.hv_controller.voltage, self.hv_controller.current)
-
+ 
