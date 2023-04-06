@@ -514,14 +514,14 @@ class HV_Gui(QWidget):
         self.counter = 0
 
         if target_voltage > current_voltage:
-            self.voltage1 = numpy.linspace(current_voltage,target_hv,nsteps)            
+            self.voltage1 = numpy.linspace(current_voltage,target_hv,nsteps-1)            
         
             for voltages in self.voltage1:
                     self.hv_controller.setHV(voltages,target_curr)
                     
                     QtTest.QTest.qWait(int(float('{0:1.0f}'.format(pause*1000))))
         else:
-            self.voltage2 = numpy.linspace(current_voltage,target_hv,nsteps)
+            self.voltage2 = numpy.linspace(current_voltage,target_hv,nsteps+1)
             
             for voltages in self.voltage2:
                     self.hv_controller.setHV(voltages,target_curr)
