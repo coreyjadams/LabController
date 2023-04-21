@@ -1,8 +1,10 @@
 import sys
 import time
+from datetime import datetime, date
+from teafiles import *
 
 from PyQt5 import QtCore, QtGui
-
+from PyQt5 import QtTest
 from PyQt5.QtWidgets import (
     QWidget, QFrame, QCheckBox,
     QVBoxLayout, QHBoxLayout, QFormLayout,
@@ -11,13 +13,14 @@ from PyQt5.QtWidgets import (
     )
 
 
+
 from . HVController import HvController
 
 import pyqtgraph as pg
 pg.setConfigOptions(antialias=True)
 
 import numpy
-max_dataframe_size = 100000
+max_dataframe_size = 100000 
 
 from serial.tools import list_ports
 
@@ -125,6 +128,8 @@ class IndicatorAndLabel(QWidget):
 
 
 class HVReadbackGui(QWidget):
+
+    stepping = QtCore.pyqtSignal(float)
 
     def __init__(self):
 
@@ -301,7 +306,7 @@ class HVSetGUI(QWidget):
 
         self.enable_layout = QVBoxLayout()
 
-        self.set_values_button = QPushButton("Set Values")
+        self.set_values_button = QPushButton("Set Values")        
         self.reset_button = QPushButton("Reset")
 
 
@@ -342,6 +347,7 @@ class HV_Gui(QWidget):
         self.HV_SET_GUI.set_values_button.clicked.connect(
             self.set_hv
         )
+
 
 
         hv_layout.addWidget(self.HV_READBACK_GUI)
@@ -407,6 +413,8 @@ class HV_Gui(QWidget):
         curr_win.setAxisItems(axisItems={'bottom' : pg.DateAxisItem(orientation='bottom')})
         # curr_win.setAxisItems(axisItems={'bottom' : date_axis})
 
+        new_var = 'nmew'
+
         # curr_plot = curr_win.addPlot(title="Current")
         self.curr_item = curr_win.getPlotItem()
         self.curr_plot = self.curr_item.plot(pen='y')
@@ -429,61 +437,76 @@ class HV_Gui(QWidget):
 
         self.setLayout(self.global_layout)
 
-        # self.start_hv_monitor()
-        self.ramp_timer = QtCore.QTimer()
-        self.ramp_timer.setInterval(1000)
-        self.ramp_timer.timeout.connect(self.ramp_step)
-    # def setYRange(self, (x_range_start, x_range_end)):
-    #     self
-
     def set_hv(self):
         '''
         Update the HV.
         '''
+        #self.starting_time = time.time()
         # Block signals to the set button until completion:
-        # self.HV_SET_GUI.blockSignals(True)
+        self.HV_SET_GUI.blockSignals(True)
 
         # First, capture the target values
+        global target_hv
         target_hv   = float(self.HV_SET_GUI.voltage_setter.entry_widget.displayText())
+        global target_curr        
         target_curr = float(self.HV_SET_GUI.current_setter.entry_widget.displayText())
+        
         target_ramp = float(self.HV_SET_GUI.ramp_setter.entry_widget.displayText())
+
 
         print(target_hv)
         print(target_curr)
         print(target_ramp)
 
+        self.ramp_rate = target_ramp
+
+
+        
+        #################################
+        # THIS IF ELSE IS ABOUT THE RAMP RATE
+        ################################# 
 
         # What is the set mode?
 
-        if target_ramp == 0.0:
+        if target_ramp == 0.0 or 0:
             # directly set the voltage:
             self.hv_controller.setHV(target_hv, target_curr)
 
         else:
-            # We need to ramp over time.
-            # start by figurng out the current voltage:
-            current_voltage = self.hv_controller.voltage
+            self.update_voltage()
+                     
+            
+            
+        self.HV_SET_GUI.set_values_button.blockSignals(False)
 
-            difference = numpy.abs(current_voltage - target_hv)
 
-            # Ramping up or down?
-            sign = 1.0 if target_hv > current_voltage else -1.0
 
-            # how many steps to take, every second?
-            self.RAMP_STEPS = int(difference / target_ramp)
-            for i in range(n_steps):
-                next_voltage = current_voltage + i*target_ramp
-                print(next_voltage)
-                timer.setSingleShot(True)
-                timer.start()
+    def update_voltage(self):
+        current_voltage = self.hv_controller.voltage
+        target_voltage = target_hv
+        diff = numpy.abs(target_voltage - current_voltage)
+        ramp_rate = self.ramp_rate
+        nsteps = int(numpy.abs(diff / ramp_rate))
+        step_size = diff*self.ramp_rate
+        duration = diff/ramp_rate
+        pause = float(duration/nsteps)
+        self.counter = 0
 
-        # Release the blocked signals:
-        # self.HV_SET_GUI.set_values_button.blockSignals(False)
+        if target_voltage > current_voltage:
+            self.voltage1 = numpy.linspace(current_voltage,target_hv,nsteps-1)            
+        
+            for voltages in self.voltage1:
+                    self.hv_controller.setHV(voltages,target_curr)
+                    
+                    QtTest.QTest.qWait(int(float('{0:1.0f}'.format(pause*1000))))
+        else:
+            self.voltage2 = numpy.linspace(current_voltage,target_hv,nsteps+1)
+            
+            for voltages in self.voltage2:
+                    self.hv_controller.setHV(voltages,target_curr)
+                    
+                    QtTest.QTest.qWait(int(float('{0:1.0f}'.format(pause*1000))))
 
-    def ramp_step(self):
-        if self.ramp_interval > self.MAX_RAMP_INTERVAL: return
-
-        self.hv_controller.setHV(next_voltage, target_curr)
 
 
     def connect_hv(self):
@@ -532,8 +555,13 @@ class HV_Gui(QWidget):
         self.hv_query_timer.start()
 
         self.start_time = time.time()
-
-
+        
+        self.curr_date = datetime.now()
+        self.str_date = 'hvps_' + datetime.now().isoformat("_")+'.tea'
+        self.str_name = self.str_date[:24].replace(':', ".") + '.tea'
+        #self.str_date = 'hvps3_31_mar_2023.tea'
+        self.open_t_file()
+    
     def hv_fault(self):
         print("HV FAULT DETECTED, NO LOGIC IMPLEMENTED YET")
 
@@ -578,6 +606,7 @@ class HV_Gui(QWidget):
         self.hv_controller.queryHV()
         t = time.time()
 
+
         if self.hv_controller.fault:
             self.hv_fault()
 
@@ -599,3 +628,31 @@ class HV_Gui(QWidget):
 
 
         self.update_plots()
+
+        self.write_t_file()
+        
+        
+        
+
+
+    def open_t_file(self):
+        self.filename = self.str_name
+        self.tf = TeaFile.create(self.filename, "Time Voltage Current", "qdd","hvps measurements")  # change date format !!!!
+        print(self.filename)
+    
+    def write_t_file(self):
+        hoje = datetime.today().isoformat()
+        hj_iso = datetime.fromisoformat(str(hoje))
+        t = (time.time() - self.start_time)*1000
+        TeaFile.openread(self.filename)
+        self.tf.write(DateTime.parse(f'{str(hj_iso.year)}-{str(hj_iso.month)}-{str(hj_iso.day)}','%Y-%m-%d') + Duration(ticks = t)
+        ,  self.hv_controller.voltage
+        ,  self.hv_controller.current)
+        
+
+
+
+
+    
+    
+ 
