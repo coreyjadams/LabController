@@ -347,10 +347,7 @@ class HV_Gui(QWidget):
         self.HV_SET_GUI.set_values_button.clicked.connect(
             self.set_hv
         )
-        
-        #self.HV_SET_GUI.set_values_button.clicked.connect(
-        #    self.new_tfile
-        #)
+
 
 
         hv_layout.addWidget(self.HV_READBACK_GUI)
@@ -440,19 +437,6 @@ class HV_Gui(QWidget):
 
         self.setLayout(self.global_layout)
 
-        #self.start_hv_monitor()
-        
-        #self.filename = self.str_date
-        #tf = TeaFile.create(self.filename, "Time Voltage Current", "qdd","hvps measurements")
-
-
-    # def setYRange(self, (x_range_start, x_range_end)):
-        # self
-
-    #def new_tfile(self):
-    #    self.str_date = 'hvps_' + datetime.now().isoformat("_")+'.tea'
-    #    self.open_t_file()
-
     def set_hv(self):
         '''
         Update the HV.
@@ -496,11 +480,6 @@ class HV_Gui(QWidget):
         self.HV_SET_GUI.set_values_button.blockSignals(False)
 
 
-    #def start_ramp(self):
-    #    #self.start_time = time.time()
-    #    self.timer = QtCore.QTimer()
-    #    self.timer.setInterval(1000) # call update_voltage function every second
-    #    self.timer.timeout.connect(self.update_voltage)
 
     def update_voltage(self):
         current_voltage = self.hv_controller.voltage
@@ -527,11 +506,7 @@ class HV_Gui(QWidget):
                     self.hv_controller.setHV(voltages,target_curr)
                     
                     QtTest.QTest.qWait(int(float('{0:1.0f}'.format(pause*1000))))
-                    
-    #def count(self):
-    #    self.counter += 1
-            
-            #return self.hv_controller.setHV(next_voltage, target_curr)
+
 
 
     def connect_hv(self):
